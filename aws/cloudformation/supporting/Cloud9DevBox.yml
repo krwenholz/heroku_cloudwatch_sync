@@ -1,9 +1,0 @@
-
-Resources:
-  devbox:
-    Type: 'AWS::Cloud9::EnvironmentEC2'
-    Properties: 
-      InstanceType: t2.medium
-      AutomaticStopTimeMinutes: 20
-      Name: HerokuCloudwatchSyncCloud9
-
