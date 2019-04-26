@@ -33,14 +33,13 @@ def lambda_handler(event, context):
 
 
 def handle_lambda_proxy_event(event):
-    print(event)
     body = event["body"]
     headers = event["headers"]
-    logGroup = event["pathParameters"]["logGroup"]
-    logStreamName = event["pathParameters"]["logStream"]
+    log_group = event["pathParameters"]["log_group"]
+    log_stream = event["pathParameters"]["log_stream"]
 
-    if logGroup == "test":
-        return respond(None, {"status": "right back at you"})
+    if log_group == "test":
+        return respond(None, {"status": "right back at you [{}]".format(log_stream)})
 
     # sanity-check source
     assert headers["X-Forwarded-Proto"] == "https"
