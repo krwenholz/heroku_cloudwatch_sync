@@ -4,6 +4,8 @@ About
 Adopted from [rwilcox](https://github.com/rwilcox/heroku_cloudwatch_sync) this is the
 basic setup for a lambda that reads in your Heroku logs to CloudWatch.
 
+Also some help from [CodeRepice-dev](https://github.com/CodeRecipe-dev/Heroku-log-AWS-cloudwatch).
+
 Using this lambda script
 =========================
 
@@ -24,8 +26,3 @@ stream to write events to. Decide on these.
 ```
 heroku drains:add https://<YOUR_LOG_DRAIN_URL>/<YOUR_LOG_GROUP>/<YOUR_LOG_STREAM>
 ```
-
-Testing deployment
-========================
-
-Visit the `/Prod/flush/test/testing` route and you should not get errors in the CloudWatch logs for the lambda function.
