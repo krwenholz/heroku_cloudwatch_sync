@@ -1,6 +1,6 @@
 # Config
 ##############################################
-variable function_name {
+variable logger_name {
   default = "heroku_log_drain"
 }
 
@@ -8,24 +8,47 @@ variable region {
   default = "us-west-2"
 }
 
+provider "aws" {
+  region     = "${var.region}"
+}
+
 # Lambda
 # --------------------------------------------------------------------
 
-data "archive_file" "zipped_lambda" {
+resource "null_resource" "pip" {
+  triggers = {
+    main         = "${base64sha256(file("src/heroku_sync_to_cloudwatch.py"))}"
+    requirements = "${base64sha256(file("requirements.txt"))}"
+  }
+
+  provisioner "local-exec" {
+    command  = <<EOC
+mkdir -p build
+source venv/bin/activate
+pip install -r requirements.txt
+cp src/* build
+cp -r ${path.module}/venv/lib/python3.7/site-packages/* build
+EOC
+  }
+}
+
+data "archive_file" "zipped_code" {
   output_path = "heroku_sync_to_cloudwatch.zip"
-  source_file = "${path.module}/src/heroku_sync_to_cloudwatch.py"
+  source_dir = "${path.module}/build"
   type        = "zip"
+
+  depends_on = [null_resource.pip]
 }
 
 resource "aws_lambda_function" "this" {
   description      = "Drains Heroku logs into this account."
-  filename         = "heroku_sync_to_cloudwatch.zip"
-  function_name    = "${var.function_name}"
+  filename         = "${data.archive_file.zipped_code.output_path}"
+  function_name    = "${var.logger_name}"
   handler          = "heroku_sync_to_cloudwatch.lambda_handler"
   publish          = true
   role             = "${aws_iam_role.iam_role.arn}"
   runtime          = "python3.7"
-  source_code_hash = "${data.archive_file.zipped_lambda.output_base64sha256}"
+  source_code_hash = "${base64sha256(file("src/heroku_sync_to_cloudwatch.py"))}-${base64sha256(file("requirements.txt"))}"
   timeout          = "120"
 }
 
@@ -41,7 +64,7 @@ resource "aws_lambda_permission" "post_session_trigger" {
 # --------------------------------------------------------------------
 
 resource "aws_api_gateway_rest_api" "this" {
-  name = "${var.function_name}"
+  name = "${var.logger_name}"
 }
 
 resource "aws_api_gateway_resource" "logs" {
@@ -50,29 +73,16 @@ resource "aws_api_gateway_resource" "logs" {
   rest_api_id = "${aws_api_gateway_rest_api.this.id}"
 }
 
-resource "aws_api_gateway_resource" "log_group" {
-  path_part   = "{log_group}"
-  parent_id   = "${aws_api_gateway_resource.logs.id}"
-  rest_api_id = "${aws_api_gateway_rest_api.this.id}"
-}
-
-# https://www.olicole.net/blog/2017/07/terraforming-aws-a-serverless-website-backend-part-3/
-resource "aws_api_gateway_resource" "log_stream" {
-  path_part   = "{log_stream}"
-  parent_id   = "${aws_api_gateway_resource.log_group.id}"
-  rest_api_id = "${aws_api_gateway_rest_api.this.id}"
-}
-
 resource "aws_api_gateway_method" "post" {
   rest_api_id   = "${aws_api_gateway_rest_api.this.id}"
-  resource_id   = "${aws_api_gateway_resource.log_stream.id}"
+  resource_id   = "${aws_api_gateway_resource.logs.id}"
   http_method   = "POST"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "integration" {
   rest_api_id             = "${aws_api_gateway_rest_api.this.id}"
-  resource_id             = "${aws_api_gateway_resource.log_stream.id}"
+  resource_id             = "${aws_api_gateway_resource.logs.id}"
   http_method             = "${aws_api_gateway_method.post.http_method}"
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
@@ -82,7 +92,7 @@ resource "aws_api_gateway_integration" "integration" {
 resource "aws_api_gateway_deployment" "endpoint" {
   depends_on = ["aws_api_gateway_method.post",  "aws_api_gateway_integration.integration"]
   rest_api_id = "${aws_api_gateway_rest_api.this.id}"
-  stage_name  = "default"
+  stage_name  = "production"
 }
 
 # IAM
@@ -115,13 +125,13 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name = "${var.function_name}-lambda_policy"
+  name = "${var.logger_name}-lambda_policy"
 
   policy = "${data.aws_iam_policy_document.lambda_policy_document.json}"
 }
 
 resource "aws_iam_role" "iam_role" {
-  name = "${var.function_name}-lambda_role"
+  name = "${var.logger_name}-lambda_role"
 
   assume_role_policy = "${data.aws_iam_policy_document.assume_role_policy.json}"
 }

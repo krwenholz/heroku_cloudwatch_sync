@@ -84,6 +84,8 @@ def handle_lambda_proxy_event(event):
     headers = event["headers"]
 
     # sanity-check source
+    assert body
+    assert headers
     assert headers["X-Forwarded-Proto"] == "https"
     assert headers["Content-Type"] == "application/logplex-1"
 
@@ -133,5 +135,4 @@ def handle_lambda_proxy_event(event):
     # sanity-check number of parsed messages
     assert int(headers["Logplex-Msg-Count"]) == chunk_count
 
-
-return ""
+    return ""

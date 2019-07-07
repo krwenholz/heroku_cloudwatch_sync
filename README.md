@@ -24,5 +24,9 @@ takes two path parameters at the end: these are the Cloudwatch Logs log group an
 stream to write events to. Decide on these.
 
 ```
-heroku drains:add https://<YOUR_LOG_DRAIN_URL>/<YOUR_LOG_GROUP>/<YOUR_LOG_STREAM>
+heroku drains:add <YOUR_LOG_DRAIN_URL>
 ```
+
+>  TODO(kyle): Create log groups based on parameters
+>  TODO(kyle): Write to app specific log group https://gist.github.com/olegdulin/fd18906343d75142a487b9a9da9042e0
+>  TODO(kyle): Will need to grab next token https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs.html#CloudWatchLogs.Client.put_log_events
