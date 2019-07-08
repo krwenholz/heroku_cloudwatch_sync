@@ -1,16 +1,17 @@
 build: clean
 	  mkdir -p build
 		( \
-				. venv/bin/activate \
+				python3 -m venv venv; \
+				. venv/bin/activate; \
 				pip install -r requirements.txt \
 		)
 	  cp src/* build
 	  cp -r ./venv/lib/python3.7/site-packages/* build
-	  zip -r9 function.zip build/
+		cd build && zip -r9 ../function.zip .
 
 clean:
 	  rm -rf build
 	  rm -f function.zip
 
-deploy: function.zip
+apply: build
 	  terraform apply

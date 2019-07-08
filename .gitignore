@@ -1,7 +1,4 @@
-target
-tmp
-.idea
-.env
+!function.zip
+
 venv/
 build
-*.zip

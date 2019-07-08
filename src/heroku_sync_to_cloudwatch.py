@@ -3,17 +3,16 @@ Expects messages to be framed with the syslog TCP octet counting method (https:/
 This is designed to be run as a Python3.6 lambda.
 """
 
-import json
-import boto3
-import logging
-import iso8601
-import requests
-from base64 import b64decode
-from pyparsing import Word, Suppress, nums, Optional, Regex, pyparsing_common, alphanums
-from syslog import LOG_DEBUG, LOG_WARNING, LOG_INFO, LOG_NOTICE
+from botocore.exceptions import ClientError
 from collections import defaultdict
+from pyparsing import Word, Suppress, nums, Optional, Regex, pyparsing_common, alphanums
+import boto3
+import iso8601
+import json
+import requests
 
-log = logging.getLogger("myapp.heroku.drain")
+
+cloudwatch = boto3.client("logs")
 
 
 class Parser(object):
@@ -89,6 +88,8 @@ def handle_lambda_proxy_event(event):
     body = event["body"]
     headers = event["headers"]
 
+    print("Received messages", headers["Logplex-Msg-Count"])
+
     # sanity-check source
     assert body
     assert headers
@@ -104,14 +105,14 @@ def handle_lambda_proxy_event(event):
         if event["source"] not in app_messages[event["app"]]:
             app_messages[event["app"]][event["source"]] = list()
         app_messages[event["app"]][event["source"]].append(
-            {"timestamp": event["timestamp"], "message": event["message"]}
+            {"timestamp": int(round(event["timestamp"].timestamp() * 1000)), "message": event["message"]}
         )
 
     for app, sources in app_messages.items():
-        for source, messages in sources:
+        for source, messages in sources.items():
             if not messages:
                 continue
-            send_to_cloudwatch(cwl, app, source, messages)
+            send_to_cloudwatch(cloudwatch, app, source, sorted(messages, key=lambda x: x["timestamp"]))
 
     # sanity-check number of parsed messages
     assert int(headers["Logplex-Msg-Count"]) == chunk_count
@@ -119,14 +120,21 @@ def handle_lambda_proxy_event(event):
     return ""
 
 
-def send_to_cloudwatch(cwl, logGroup, logGroupStream, events):
-    stream_info = cwl.describe_log_streams(logGroupName=logGroup, logStreamNamePrefix=logGroupStream)["logStreams"][0]
-    if "uploadSequenceToken" not in stream_info:
-        cwl.put_log_events(logGroupName=logGroup, logStreamName=logGroupStream, logEvents=messages)
-    else:
-        cwl.put_log_events(
+def send_to_cloudwatch(cloudwatch, logGroup, logStream, events):
+    print("Draining logs", logGroup, logStream, str(len(events)))
+
+    stream_info = cloudwatch.describe_log_streams(logGroupName=logGroup, logStreamNamePrefix=logStream)["logStreams"]
+
+    if stream_info and "uploadSequenceToken" in stream_info[0]:
+        cloudwatch.put_log_events(
             logGroupName=logGroup,
-            logStreamName=logGroupStream,
-            logEvents=messages,
-            sequenceToken=stream_info["uploadSequenceToken"],
+            logStreamName=logStream,
+            logEvents=events,
+            sequenceToken=stream_info[0]["uploadSequenceToken"],
         )
+    else:
+        try:
+            cloudwatch.create_log_stream(logGroupName=logGroup, logStreamName=logStream)
+        except ClientError as error:
+            print("Error creating stream, maybe it exists", logStream, str(error))
+        cloudwatch.put_log_events(logGroupName=logGroup, logStreamName=logStream, logEvents=events)

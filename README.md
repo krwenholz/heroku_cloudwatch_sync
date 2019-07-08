@@ -6,8 +6,8 @@ basic setup for a lambda that reads in your Heroku logs to CloudWatch.
 
 Also some help from [CodeRepice-dev](https://github.com/CodeRecipe-dev/Heroku-log-AWS-cloudwatch).
 
-Using this lambda script
-=========================
+Using this lambda
+=================
 
 Import and use the Terraform module like
 
@@ -27,3 +27,9 @@ stream to write events to. Decide on these.
 ```
 heroku drains:add <YOUR_LOG_DRAIN_URL>
 ```
+
+Notes
+=====
+
+The API gateway deployment doesn't seem to work correctly, so if you change the API, you
+need to go into the console and manually deploy it.

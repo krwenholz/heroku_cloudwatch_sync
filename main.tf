@@ -13,7 +13,7 @@ variable region {
 
 variable "app_names" {
   description = "Heroku apps sending logs to this drain"
-  default = ["app"]
+  default = ["web.3"]
 }
 
 provider "aws" {
@@ -32,50 +32,16 @@ resource "aws_cloudwatch_log_group" "heroku_log_group" {
 # Lambda
 # --------------------------------------------------------------------
 
-resource "null_resource" "pip" {
-  triggers = {
-    main         = base64sha256(file("src/heroku_sync_to_cloudwatch.py"))
-    requirements = base64sha256(file("requirements.txt"))
-  }
-
-  provisioner "local-exec" {
-    command  = <<EOC
-mkdir -p build
-source venv/bin/activate
-pip install -r requirements.txt
-cp src/* build
-cp -r ${path.module}/venv/lib/python3.7/site-packages/* build
-#zip -r9 function.zip .
-EOC
-  }
-}
-
-data "archive_file" "zipped_code" {
-  output_path = "function.zip"
-  source_dir = "${path.module}/build"
-  type        = "zip"
-}
-
 resource "aws_lambda_function" "this" {
   description      = "Drains Heroku logs into this account."
-  filename         = data.archive_file.zipped_code.output_path
+  filename         = "function.zip"
   function_name    = var.logger_name
   handler          = "heroku_sync_to_cloudwatch.lambda_handler"
   publish          = true
   role             = aws_iam_role.iam_role.arn
   runtime          = "python3.7"
-  source_code_hash = data.archive_file.zipped_code.output_base64sha256
+  source_code_hash = filebase64sha256("function.zip")
   timeout          = "120"
-
-  # A dirty hack for our dirty deployment method
-  triggers = {
-    main         = base64sha256(file("src/heroku_sync_to_cloudwatch.py"))
-    requirements = base64sha256(file("requirements.txt"))
-  }
-
-  lifecycle {
-    ignore_changes = ["source_code_hash"]
-  }
 }
 
 resource "aws_lambda_permission" "post_session_trigger" {
@@ -93,8 +59,15 @@ resource "aws_api_gateway_rest_api" "this" {
   name = var.logger_name
 }
 
+# Use a random string for a little bit of API obscurity/security (not real security, but
+# really reduces the odds this gets abused).
+resource "random_string" "obscure_ending" {
+  length = 12
+  special = false
+}
+
 resource "aws_api_gateway_resource" "logs" {
-  path_part   = "logs"
+  path_part   = "${random_string.obscure_ending.result}"
   parent_id   = "${aws_api_gateway_rest_api.this.root_resource_id}"
   rest_api_id = "${aws_api_gateway_rest_api.this.id}"
 }
@@ -170,5 +143,5 @@ resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
 # Outputs
 ##############################################
 output "url" {
-  value = "${aws_api_gateway_deployment.endpoint.invoke_url}/"
+  value = "${aws_api_gateway_deployment.endpoint.invoke_url}/${random_string.obscure_ending.result}"
 }
