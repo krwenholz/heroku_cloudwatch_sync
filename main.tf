@@ -34,13 +34,13 @@ resource "aws_cloudwatch_log_group" "heroku_log_group" {
 
 resource "aws_lambda_function" "this" {
   description      = "Drains Heroku logs into this account."
-  filename         = "function.zip"
+  filename         = "${path.module}/function.zip"
   function_name    = var.logger_name
   handler          = "heroku_sync_to_cloudwatch.lambda_handler"
   publish          = true
   role             = aws_iam_role.iam_role.arn
   runtime          = "python3.7"
-  source_code_hash = filebase64sha256("function.zip")
+  source_code_hash = filebase64sha256("${path.module}/function.zip")
   timeout          = "120"
 }
 
