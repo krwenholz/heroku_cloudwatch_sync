@@ -85,6 +85,7 @@ def get_chunk(payload: bytes):
 
 
 def handle_lambda_proxy_event(event):
+    print(event)
     body = event["body"]
     headers = event["headers"]
 
