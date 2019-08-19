@@ -9,7 +9,11 @@ from pyparsing import Word, Suppress, nums, Optional, Regex, pyparsing_common, a
 import boto3
 import iso8601
 import json
+import os
 import requests
+
+
+LOG_GROUP = os.environ["log_group"]
 
 
 cloudwatch = boto3.client("logs")
@@ -113,7 +117,7 @@ def handle_lambda_proxy_event(event):
         for source, messages in sources.items():
             if not messages:
                 continue
-            send_to_cloudwatch(cloudwatch, app, source, sorted(messages, key=lambda x: x["timestamp"]))
+            send_to_cloudwatch(cloudwatch, LOG_GROUP, source, sorted(messages, key=lambda x: x["timestamp"]))
 
     # sanity-check number of parsed messages
     assert int(headers["Logplex-Msg-Count"]) == chunk_count

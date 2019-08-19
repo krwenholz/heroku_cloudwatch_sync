@@ -11,9 +11,9 @@ variable region {
   default = "us-west-2"
 }
 
-variable "app_names" {
+variable "app_name" {
   description = "Heroku apps sending logs to this drain"
-  default = ["web.3"]
+  default = "web.3"
 }
 
 provider "aws" {
@@ -24,9 +24,7 @@ provider "aws" {
 # --------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "heroku_log_group" {
-  count = length(var.app_names)
-
-  name = var.app_names[count.index]
+  name = var.app_name
 }
 
 # Lambda
@@ -42,6 +40,12 @@ resource "aws_lambda_function" "this" {
   runtime          = "python3.7"
   source_code_hash = filebase64sha256("${path.module}/function.zip")
   timeout          = "120"
+
+  environment {
+    variables = {
+      log_group = var.app_name
+    }
+  }
 }
 
 resource "aws_lambda_permission" "post_session_trigger" {
