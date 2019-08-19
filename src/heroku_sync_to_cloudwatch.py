@@ -89,7 +89,6 @@ def get_chunk(payload: bytes):
 
 
 def handle_lambda_proxy_event(event):
-    print(event)
     body = event["body"]
     headers = event["headers"]
 
@@ -127,7 +126,6 @@ def handle_lambda_proxy_event(event):
 
 def send_to_cloudwatch(cloudwatch, logGroup, logStream, events):
     print("Draining logs", logGroup, logStream, str(len(events)))
-    print(json.dumps(events))
 
     stream_info = cloudwatch.describe_log_streams(logGroupName=logGroup, logStreamNamePrefix=logStream)["logStreams"]
 
