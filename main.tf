@@ -13,11 +13,11 @@ variable region {
 
 variable "app_name" {
   description = "Heroku apps sending logs to this drain"
-  default = "web.3"
+  default     = "web.3"
 }
 
 provider "aws" {
-  region     = "${var.region}"
+  region = var.region
 }
 
 # Log groups
@@ -66,34 +66,34 @@ resource "aws_api_gateway_rest_api" "this" {
 # Use a random string for a little bit of API obscurity/security (not real security, but
 # really reduces the odds this gets abused).
 resource "random_string" "obscure_ending" {
-  length = 12
+  length  = 12
   special = false
 }
 
 resource "aws_api_gateway_resource" "logs" {
-  path_part   = "${random_string.obscure_ending.result}"
-  parent_id   = "${aws_api_gateway_rest_api.this.root_resource_id}"
-  rest_api_id = "${aws_api_gateway_rest_api.this.id}"
+  path_part   = random_string.obscure_ending.result
+  parent_id   = aws_api_gateway_rest_api.this.root_resource_id
+  rest_api_id = aws_api_gateway_rest_api.this.id
 }
 
 resource "aws_api_gateway_method" "post" {
-  rest_api_id   = "${aws_api_gateway_rest_api.this.id}"
-  resource_id   = "${aws_api_gateway_resource.logs.id}"
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.logs.id
   http_method   = "POST"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "integration" {
-  rest_api_id             = "${aws_api_gateway_rest_api.this.id}"
-  resource_id             = "${aws_api_gateway_resource.logs.id}"
-  http_method             = "${aws_api_gateway_method.post.http_method}"
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.logs.id
+  http_method             = aws_api_gateway_method.post.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = "arn:aws:apigateway:${var.region}:lambda:path/2015-03-31/functions/${aws_lambda_function.this.arn}/invocations"
 }
 
 resource "aws_api_gateway_deployment" "endpoint" {
-  depends_on = [aws_api_gateway_method.post,  aws_api_gateway_integration.integration]
+  depends_on  = [aws_api_gateway_method.post, aws_api_gateway_integration.integration]
   rest_api_id = aws_api_gateway_rest_api.this.id
   stage_name  = "production"
 }
@@ -130,18 +130,18 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 resource "aws_iam_policy" "lambda_policy" {
   name = "${var.logger_name}-lambda_policy"
 
-  policy = "${data.aws_iam_policy_document.lambda_policy_document.json}"
+  policy = data.aws_iam_policy_document.lambda_policy_document.json
 }
 
 resource "aws_iam_role" "iam_role" {
   name = "${var.logger_name}-lambda_role"
 
-  assume_role_policy = "${data.aws_iam_policy_document.assume_role_policy.json}"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
-  policy_arn = "${aws_iam_policy.lambda_policy.arn}"
-  role       = "${aws_iam_role.iam_role.name}"
+  policy_arn = aws_iam_policy.lambda_policy.arn
+  role       = aws_iam_role.iam_role.name
 }
 
 # Outputs
