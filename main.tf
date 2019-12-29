@@ -149,3 +149,11 @@ resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
 output "url" {
   value = "${aws_api_gateway_deployment.endpoint.invoke_url}/${random_string.obscure_ending.result}"
 }
+
+output "log_group_arn" {
+  value = aws_cloudwatch_log_group.heroku_log_group.arn
+}
+
+output "log_group_name" {
+  value = aws_cloudwatch_log_group.heroku_log_group.name
+}
